@@ -7,9 +7,9 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import {
   widthPercentageToDP as wp,
   heightPercentageToDP as hp,
@@ -20,32 +20,61 @@ export default function MyArticlesScreen() {
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchArticles = async () => {
-     
-    };
-
-    fetchArticles();
+  const fetchArticles = useCallback(async () => {
+    try {
+      const storedArticles = await AsyncStorage.getItem("customArticles");
+      setArticles(storedArticles ? JSON.parse(storedArticles) : []);
+    } catch (error) {
+      console.error("Error loading the articles:", error);
+    } finally {
+      setLoading(false); // Loading is complete
+    }
   }, []);
+
+  // Reload whenever the screen comes back into focus (after add/edit)
+  useFocusEffect(
+    useCallback(() => {
+      fetchArticles();
+    }, [fetchArticles])
+  );
 
   const handleAddArticle = () => {
     navigation.navigate("NewsFormScreen");
   };
 
   const handleArticleClick = (article) => {
+    navigation.navigate("CustomNewsScreen", { article });
   };
 
-  const deleteArticle = async () => {
-    
+  const deleteArticle = async (index) => {
+    try {
+      const updatedArticles = [...articles];
+      updatedArticles.splice(index, 1); // Remove article from array
+      await AsyncStorage.setItem(
+        "customArticles",
+        JSON.stringify(updatedArticles)
+      ); // Update AsyncStorage
+      setArticles(updatedArticles); // Update state
+    } catch (error) {
+      console.error("Error deleting the article:", error);
+    }
   };
 
-  const editArticle = () => {
+  const editArticle = (article, index) => {
+    navigation.navigate("NewsFormScreen", {
+      articleToEdit: article,
+      articleIndex: index,
+      onArticleEdited: fetchArticles,
+    });
   };
 
   return (
     <View style={styles.container}>
       {/* Back Button */}
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+      <TouchableOpacity
+        onPress={() => navigation.goBack()}
+        style={styles.backButton}
+      >
         <Text style={styles.backButtonText}>{"Back"}</Text>
       </TouchableOpacity>
 
@@ -62,18 +91,41 @@ export default function MyArticlesScreen() {
           ) : (
             articles.map((article, index) => (
               <View key={index} style={styles.articleCard} testID="articleCard">
-                <TouchableOpacity testID="handleArticleBtn">
-                  
+                <TouchableOpacity
+                  testID="handleArticleBtn"
+                  onPress={() => handleArticleClick(article)}
+                >
+                  {article.image && (
+                    <Image
+                      source={{ uri: article.image }}
+                      style={styles.articleImage}
+                    />
+                  )}
+
                   <Text style={styles.articleTitle}>{article.title}</Text>
                   <Text style={styles.articleDescription} testID="articleDescp">
-                  
+                    {article.description?.substring(0, 50) + "..."}
                   </Text>
                 </TouchableOpacity>
 
                 {/* Edit and Delete Buttons */}
-                <View style={styles.actionButtonsContainer} testID="editDeleteButtons">
-                  
-                 
+                <View
+                  style={styles.actionButtonsContainer}
+                  testID="editDeleteButtons"
+                >
+                  <TouchableOpacity
+                    onPress={() => editArticle(article, index)}
+                    style={styles.editButton}
+                  >
+                    <Text style={styles.editButtonText}>Edit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => deleteArticle(index)}
+                    style={styles.deleteButton}
+                  >
+                    <Text style={styles.deleteButtonText}>Delete</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             ))
@@ -99,12 +151,13 @@ const styles = StyleSheet.create({
   },
   addButton: {
     backgroundColor: "#4F75FF",
-    padding: wp(.7),
+    padding: wp(0.7),
     alignItems: "center",
     borderRadius: 5,
-    width:300,
-   marginLeft:500
-    // marginBottom: hp(2),
+    alignSelf: "center",
+    width: wp(80),
+    maxWidth: 300,
+    marginBottom: hp(2),
   },
   addButtonText: {
     color: "#fff",
@@ -113,12 +166,10 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     paddingBottom: hp(2),
-    height:'auto',
-    display:'flex',
-    alignItems:'center',
-    justifyContent:'center',
-    flexDirection:'row',
-    flexWrap:'wrap'
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    flexWrap: "wrap",
   },
   noArticlesText: {
     textAlign: "center",
@@ -127,12 +178,12 @@ const styles = StyleSheet.create({
     marginTop: hp(5),
   },
   articleCard: {
-    width: 400, // Make article card width more compact
-    height: 300, // Adjust the height of the card to fit content
+    width: wp(90),
+    maxWidth: 400, // Make article card width more compact
     backgroundColor: "#fff",
     padding: wp(3),
     borderRadius: 8,
-    marginBottom: hp(2),
+    margin: hp(1),
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -140,7 +191,7 @@ const styles = StyleSheet.create({
     elevation: 3, // for Android shadow
   },
   articleImage: {
-    width: 300, // Set width for article image
+    width: "100%", // Set width for article image
     height: 150, // Adjust height of the image
     borderRadius: 8,
     marginBottom: hp(1),
@@ -163,7 +214,7 @@ const styles = StyleSheet.create({
   },
   editButton: {
     backgroundColor: "#34D399",
-    padding: wp(.5),
+    padding: wp(0.5),
     borderRadius: 5,
     width: 100, // Adjust width of buttons to be more compact
     alignItems: "center",
@@ -175,7 +226,7 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: "#EF4444",
-    padding: wp(.5),
+    padding: wp(0.5),
     borderRadius: 5,
     width: 100, // Adjust width of buttons to be more compact
     alignItems: "center",
