@@ -1,4 +1,4 @@
-import { View, Text, Pressable, Image, StyleSheet, FlatList, TouchableOpacity } from "react-native";
+import { View, Text, Pressable, Image, StyleSheet, TouchableOpacity } from "react-native";
 import React from "react";
 import {widthPercentageToDP as wp, heightPercentageToDP as hp,} from "react-native-responsive-screen";
 import { useNavigation } from "@react-navigation/native";
@@ -6,22 +6,18 @@ import { useNavigation } from "@react-navigation/native";
 export default function Articles({ categories, articles }) {
   const navigation = useNavigation();
 
-  const renderItem = ({ item, index }) => (
-<ArticleCard item={item} index={index} navigation={navigation} />
-  );
-
   return (
     <View style={styles.container}>
       <Text style={styles.title} testID="title">Latest News</Text>
-      <View testID="articlesDisplay">
-     
-          <FlatList
-            data={articles}
-            keyExtractor={(item) => item.idArticle}
-            renderItem={renderItem}
-            numColumns={2}
+      <View testID="articlesDisplay" style={styles.grid}>
+        {articles.map((item, index) => (
+          <ArticleCard
+            key={item.idArticle}
+            item={item}
+            index={index}
+            navigation={navigation}
           />
-
+        ))}
       </View>
     </View>
   );
@@ -65,10 +61,14 @@ const styles = StyleSheet.create({
   loading: {
     marginTop: hp(20),
   },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
   cardContainer: {
+    width: "50%", // two columns
     justifyContent: "center",
     marginBottom: hp(1.5),
-    flex: 1, // Allows cards to grow and fill space evenly
   },
   articleImage: {
     width: "100%",
